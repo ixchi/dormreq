@@ -2,30 +2,22 @@ package main
 
 func createDatabase() {
 	DB.MustExec(`
-		create table if not exists category (
-			id integer primary key autoincrement,
-			name string not null unique
+		CREATE TABLE IF NOT EXISTS category (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name STRING NOT NULL UNIQUE
 		);
 
-		create table if not exists purchase (
-			id integer primary key autoincrement,
-			name string not null,
-			purchased boolean not null check(purchased in (0, 1)) default 0,
-			price integer not null,
-			notes string,
-			category_id int default 1
+		CREATE TABLE IF NOT EXISTS purchase (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name STRING NOT NULL,
+			purchased boolean NOT NULL CHECK (purchased in (0, 1)) DEFAULT 0,
+			price INTEGER NOT NULL,
+			notes STRING,
+			category_id int DEFAULT 1
 		);
 
-		insert into category (name)
-			select 'Uncategorized'
-			where not exists (select 1 from category where id = 1);
-	`)
-}
-
-func testData() {
-	DB.MustExec(`
-		insert into purchase (name, purchased, price) values
-		('A test item', 0, 145),
-		('A thing', 1, 354);
+		INSERT INTO category (name)
+			SELECT 'Uncategorized'
+			WHERE NOT EXISTS (select 1 from category where id = 1);
 	`)
 }
