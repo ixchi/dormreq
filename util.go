@@ -22,7 +22,15 @@ func NewPurchaseRender(purchase Purchase) PurchaseRender {
 	}
 
 	var category Category
-	DB.Get(&category, `select * from category where id = ?`, purchase.CategoryID)
+	DB.Get(&category, `
+        SELECT
+            id,
+            name
+        FROM
+            category
+        WHERE
+            id = ?
+    `, purchase.CategoryID)
 
 	return PurchaseRender{
 		ID:        purchase.ID,
