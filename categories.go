@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/kataras/iris"
+	"encoding/json"
+	"net/http"
 )
 
-func listCategories(ctx *iris.Context) {
+func listCategories(w http.ResponseWriter, r *http.Request) {
 	var categories []Category
 	DB.Select(&categories, `
         SELECT
@@ -14,11 +15,13 @@ func listCategories(ctx *iris.Context) {
             category
         `)
 
-	ctx.JSON(200, categories)
+	j, _ := json.Marshal(categories)
+	w.Write(j)
 }
 
-func addCategory(ctx *iris.Context) {
-	name := ctx.PostValue("name")
+func addCategory(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name := r.Form["name"][0]
 
 	DB.Exec(`
         INSERT INTO
@@ -26,22 +29,23 @@ func addCategory(ctx *iris.Context) {
             VALUES (?)
     `, name)
 
-	ctx.Redirect("/items")
+	http.Redirect(w, r, "/items", http.StatusSeeOther)
 }
 
-func removeCategory(ctx *iris.Context) {
-	id := ctx.PostValue("category")
+func removeCategory(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	id := r.Form["category"][0]
 
 	if id == "1" {
-		ctx.WriteString("Unable to remove default category")
+		w.Write([]byte("Unable to remove default category"))
 		return
 	}
 
 	DB.Exec(`
-        DELETE FROM 
+        DELETE FROM
             category
         WHERE id = ?
     `, id)
 
-	ctx.Redirect("/items")
+	http.Redirect(w, r, "/items", http.StatusSeeOther)
 }

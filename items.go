@@ -3,12 +3,12 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"html/template"
+	"net/http"
 	"strconv"
-
-	"github.com/kataras/iris"
 )
 
-func listItems(ctx *iris.Context) {
+func listItems(w http.ResponseWriter, r *http.Request) {
 	var purchases []Purchase
 	err := DB.Select(&purchases, `
         SELECT
@@ -62,7 +62,7 @@ func listItems(ctx *iris.Context) {
         WHERE
             id NOT IN (
                 SELECT
-                    category_id 
+                    category_id
                 FROM
                     purchase
                 GROUP BY
@@ -70,7 +70,9 @@ func listItems(ctx *iris.Context) {
             )
     `)
 
-	ctx.Render("list.html", struct {
+	html, _ := templatesListHtmlBytes()
+	t, _ := template.New("items").Parse(string(html))
+	t.Execute(w, struct {
 		Purchases           map[string][]PurchaseRender
 		Categories          []Category
 		RemovableCategories []Category
@@ -78,17 +80,18 @@ func listItems(ctx *iris.Context) {
 	}{sorted, categories, removableCategories, ParsePrice(cost)})
 }
 
-func addItem(ctx *iris.Context) {
-	name := ctx.PostValue("name")
-	price := ctx.PostValue("price")
+func addItem(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name := r.Form["name"][0]
+	price := r.Form["price"][0]
 	parsedPrice, err := strconv.ParseFloat(price, 32)
 	if err != nil {
 		fmt.Println(err.Error())
-		ctx.WriteString("invalid price")
+		w.Write([]byte("invalid price"))
 		return
 	}
-	notes := ctx.PostValue("notes")
-	categoryID := ctx.PostValue("category")
+	notes := r.Form["notes"][0]
+	categoryID := r.Form["category"][0]
 	var category Category
 	err = DB.Get(&category, `
         SELECT
@@ -100,7 +103,7 @@ func addItem(ctx *iris.Context) {
             id = ?
     `, categoryID)
 	if err == sql.ErrNoRows {
-		ctx.WriteString("unknown category")
+		w.Write([]byte("unknown category"))
 		return
 	}
 
@@ -110,29 +113,29 @@ func addItem(ctx *iris.Context) {
 		    VALUES (?, ?, ?, ?)
     `, name, parsedPrice*100, notes, categoryID)
 	if err != nil {
-		ctx.WriteString("error storing data")
+		w.Write([]byte("error storing data"))
 		fmt.Println(err.Error())
 		return
 	}
 
-	ctx.Redirect("/items")
+	http.Redirect(w, r, "/items", http.StatusSeeOther)
 }
 
-func removeItem(ctx *iris.Context) {
-	id := ctx.PostValue("item")
+func removeItem(w http.ResponseWriter, r *http.Request) {
+	item := r.Context().Value("item").(Purchase)
 
 	DB.Exec(`
         DELETE FROM
             purchase
         WHERE
             id = ?
-    `, id)
+    `, item.ID)
 
-	ctx.Redirect("/items")
+	http.Redirect(w, r, "/items", http.StatusSeeOther)
 }
 
-func purchaseItem(ctx *iris.Context) {
-	id := ctx.PostValue("item")
+func purchaseItem(w http.ResponseWriter, r *http.Request) {
+	item := r.Context().Value("item").(Purchase)
 
 	DB.Exec(`
         UPDATE
@@ -141,13 +144,13 @@ func purchaseItem(ctx *iris.Context) {
             purchased = 1
         WHERE
             id = ?
-    `, id)
+    `, item.ID)
 
-	ctx.Redirect("/items")
+	http.Redirect(w, r, "/items", http.StatusSeeOther)
 }
 
-func unpurchaseItem(ctx *iris.Context) {
-	id := ctx.PostValue("item")
+func unpurchaseItem(w http.ResponseWriter, r *http.Request) {
+	item := r.Context().Value("item").(Purchase)
 
 	DB.Exec(`
         UPDATE
@@ -156,7 +159,7 @@ func unpurchaseItem(ctx *iris.Context) {
             purchased = 0
         WHERE
             id = ?
-    `, id)
+    `, item.ID)
 
-	ctx.Redirect("/items")
+	http.Redirect(w, r, "/items", http.StatusSeeOther)
 }
